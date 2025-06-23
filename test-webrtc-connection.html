@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>WebRTC ICE Connectivity Test</title>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				max-width: 800px;
+				margin: 0 auto;
+				padding: 20px;
+				background-color: #f5f5f5;
+			}
+			.container {
+				background: white;
+				padding: 20px;
+				border-radius: 8px;
+				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+			}
+			.status {
+				padding: 10px;
+				margin: 10px 0;
+				border-radius: 4px;
+				font-weight: bold;
+			}
+			.success {
+				background-color: #d4edda;
+				color: #155724;
+				border: 1px solid #c3e6cb;
+			}
+			.error {
+				background-color: #f8d7da;
+				color: #721c24;
+				border: 1px solid #f5c6cb;
+			}
+			.info {
+				background-color: #d1ecf1;
+				color: #0c5460;
+				border: 1px solid #bee5eb;
+			}
+			.warning {
+				background-color: #fff3cd;
+				color: #856404;
+				border: 1px solid #ffeaa7;
+			}
+			button {
+				background-color: #007bff;
+				color: white;
+				border: none;
+				padding: 10px 20px;
+				margin: 5px;
+				border-radius: 4px;
+				cursor: pointer;
+				font-size: 14px;
+			}
+			button:hover {
+				background-color: #0056b3;
+			}
+			button:disabled {
+				background-color: #6c757d;
+				cursor: not-allowed;
+			}
+			#log {
+				background-color: #f8f9fa;
+				border: 1px solid #dee2e6;
+				padding: 15px;
+				margin-top: 20px;
+				border-radius: 4px;
+				height: 300px;
+				overflow-y: auto;
+				font-family: monospace;
+				font-size: 12px;
+			}
+			.candidate {
+				margin: 5px 0;
+				padding: 5px;
+				background-color: #e9ecef;
+				border-radius: 3px;
+				font-family: monospace;
+				font-size: 11px;
+			}
+			.candidate.host {
+				border-left: 4px solid #28a745;
+			}
+			.candidate.srflx {
+				border-left: 4px solid #ffc107;
+			}
+			.candidate.relay {
+				border-left: 4px solid #dc3545;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<h1>🔗 WebRTC ICE Connectivity Test</h1>
+			<p>
+				This test verifies that your browser can establish WebRTC connections
+				using the configured ICE servers (STUN/TURN).
+			</p>
+
+			<div class="status info">
+				<strong>Server Configuration:</strong><br />
+				• LiveKit: ws://localhost:7880<br />
+				• STUN: stun.l.google.com:19302<br />
+				• TURN: localhost:3478
+			</div>
+
+			<div>
+				<button onclick="testICEServers()">🧪 Test ICE Servers</button>
+				<button onclick="testSTUN()">🌐 Test STUN Only</button>
+				<button onclick="testTURN()">🔄 Test TURN Only</button>
+				<button onclick="clearLog()">🗑️ Clear Log</button>
+			</div>
+
+			<div id="status"></div>
+			<div id="candidates"></div>
+			<div id="log"></div>
+		</div>
+
+		<script>
+			let logElement = document.getElementById("log");
+			let statusElement = document.getElementById("status");
+			let candidatesElement = document.getElementById("candidates");
+
+			function log(message, type = "info") {
+				const timestamp = new Date().toLocaleTimeString();
+				const logEntry = `[${timestamp}] ${message}`;
+				console.log(logEntry);
+
+				const div = document.createElement("div");
+				div.textContent = logEntry;
+				div.className = type;
+				logElement.appendChild(div);
+				logElement.scrollTop = logElement.scrollHeight;
+			}
+
+			function updateStatus(message, type = "info") {
+				statusElement.innerHTML = `<div class="status ${type}">${message}</div>`;
+			}
+
+			function addCandidate(candidate, type) {
+				const div = document.createElement("div");
+				div.className = `candidate ${type}`;
+				div.textContent = `${type.toUpperCase()}: ${candidate}`;
+				candidatesElement.appendChild(div);
+			}
+
+			function clearLog() {
+				logElement.innerHTML = "";
+				statusElement.innerHTML = "";
+				candidatesElement.innerHTML = "";
+			}
+
+			async function testICEServers() {
+				clearLog();
+				log("🚀 Starting comprehensive ICE server test...", "info");
+				updateStatus("Testing ICE connectivity... Please wait.", "info");
+
+				const iceServers = [
+					{ urls: "stun:stun.l.google.com:19302" },
+					{ urls: "stun:stun1.l.google.com:19302" },
+					{ urls: "stun:localhost:3478" },
+					{
+						urls: "turn:localhost:3478",
+						username: "",
+						credential: "",
+					},
+				];
+
+				try {
+					const pc = new RTCPeerConnection({ iceServers });
+					let hostFound = false,
+						srflxFound = false,
+						relayFound = false;
+					let candidateCount = 0;
+
+					pc.onicecandidate = (event) => {
+						if (event.candidate) {
+							candidateCount++;
+							const candidate = event.candidate.candidate;
+							log(`ICE Candidate: ${candidate}`, "info");
+
+							if (candidate.includes("typ host")) {
+								hostFound = true;
+								addCandidate(candidate, "host");
+							} else if (candidate.includes("typ srflx")) {
+								srflxFound = true;
+								addCandidate(candidate, "srflx");
+							} else if (candidate.includes("typ relay")) {
+								relayFound = true;
+								addCandidate(candidate, "relay");
+							}
+						} else {
+							log("✅ ICE gathering complete", "success");
+
+							let statusMessage = `Test Complete! Found ${candidateCount} candidates:<br>`;
+							statusMessage += `• Host candidates: ${
+								hostFound ? "✅" : "❌"
+							}<br>`;
+							statusMessage += `• STUN candidates (srflx): ${
+								srflxFound ? "✅" : "❌"
+							}<br>`;
+							statusMessage += `• TURN candidates (relay): ${
+								relayFound ? "✅" : "❌"
+							}`;
+
+							if (hostFound && srflxFound) {
+								updateStatus(
+									statusMessage +
+										"<br><br>🎉 <strong>Connection should work!</strong>",
+									"success"
+								);
+							} else if (hostFound) {
+								updateStatus(
+									statusMessage +
+										"<br><br>⚠️ <strong>Limited connectivity - may not work behind NAT</strong>",
+									"warning"
+								);
+							} else {
+								updateStatus(
+									statusMessage +
+										"<br><br>❌ <strong>Connection issues detected</strong>",
+									"error"
+								);
+							}
+						}
+					};
+
+					pc.onicegatheringstatechange = () => {
+						log(`ICE gathering state: ${pc.iceGatheringState}`, "info");
+					};
+
+					pc.oniceconnectionstatechange = () => {
+						log(`ICE connection state: ${pc.iceConnectionState}`, "info");
+					};
+
+					// Create a data channel to trigger ICE gathering
+					const dataChannel = pc.createDataChannel("test");
+					const offer = await pc.createOffer();
+					await pc.setLocalDescription(offer);
+
+					// Clean up after 10 seconds
+					setTimeout(() => {
+						pc.close();
+						log("🔄 Connection closed", "info");
+					}, 10000);
+				} catch (error) {
+					log(`❌ Error: ${error.message}`, "error");
+					updateStatus(`Test failed: ${error.message}`, "error");
+				}
+			}
+
+			async function testSTUN() {
+				clearLog();
+				log("🌐 Testing STUN servers only...", "info");
+				updateStatus("Testing STUN connectivity...", "info");
+
+				try {
+					const pc = new RTCPeerConnection({
+						iceServers: [
+							{ urls: "stun:stun.l.google.com:19302" },
+							{ urls: "stun:localhost:3478" },
+						],
+					});
+
+					let srflxFound = false;
+
+					pc.onicecandidate = (event) => {
+						if (event.candidate) {
+							const candidate = event.candidate.candidate;
+							log(`STUN Candidate: ${candidate}`, "info");
+
+							if (candidate.includes("typ srflx")) {
+								srflxFound = true;
+								addCandidate(candidate, "srflx");
+							}
+						} else {
+							if (srflxFound) {
+								updateStatus(
+									"✅ STUN server working - Public IP discovered!",
+									"success"
+								);
+							} else {
+								updateStatus(
+									"❌ STUN server not responding or blocked",
+									"error"
+								);
+							}
+						}
+					};
+
+					const dataChannel = pc.createDataChannel("stun-test");
+					const offer = await pc.createOffer();
+					await pc.setLocalDescription(offer);
+
+					setTimeout(() => pc.close(), 5000);
+				} catch (error) {
+					log(`❌ STUN test error: ${error.message}`, "error");
+					updateStatus(`STUN test failed: ${error.message}`, "error");
+				}
+			}
+
+			async function testTURN() {
+				clearLog();
+				log("🔄 Testing TURN server only...", "info");
+				updateStatus("Testing TURN relay functionality...", "info");
+
+				try {
+					const pc = new RTCPeerConnection({
+						iceServers: [
+							{
+								urls: "turn:localhost:3478",
+								username: "",
+								credential: "",
+							},
+						],
+						iceTransportPolicy: "relay", // Force TURN usage
+					});
+
+					let relayFound = false;
+
+					pc.onicecandidate = (event) => {
+						if (event.candidate) {
+							const candidate = event.candidate.candidate;
+							log(`TURN Candidate: ${candidate}`, "info");
+
+							if (candidate.includes("typ relay")) {
+								relayFound = true;
+								addCandidate(candidate, "relay");
+							}
+						} else {
+							if (relayFound) {
+								updateStatus(
+									"✅ TURN server working - Relay candidates found!",
+									"success"
+								);
+							} else {
+								updateStatus(
+									"❌ TURN server not accessible or misconfigured",
+									"error"
+								);
+							}
+						}
+					};
+
+					const dataChannel = pc.createDataChannel("turn-test");
+					const offer = await pc.createOffer();
+					await pc.setLocalDescription(offer);
+
+					setTimeout(() => pc.close(), 8000);
+				} catch (error) {
+					log(`❌ TURN test error: ${error.message}`, "error");
+					updateStatus(`TURN test failed: ${error.message}`, "error");
+				}
+			}
+
+			// Auto-run basic test on page load
+			window.onload = () => {
+				log("🔗 WebRTC ICE Test Page Loaded", "info");
+				log('Click "Test ICE Servers" to verify connectivity', "info");
+				updateStatus("Ready to test. Click a button above to begin.", "info");
+			};
+		</script>
+	</body>
+</html>

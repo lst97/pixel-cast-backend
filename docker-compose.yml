@@ -1,0 +1,21 @@
+services:
+  # LiveKit SFU Server (the actual media server)
+  livekit:
+    image: livekit/livekit-server:latest
+    ports:
+      - "7880:7880" # HTTP/WebSocket port
+      - "7881:7881" # TURN/TCP port
+      - "3478:3478/udp" # TURN/UDP port
+      - "3478:3478/tcp" # TURN/TCP port
+      - "5349:5349/tcp" # TURN/TLS port
+      - "50000-50020:50000-50020/udp" # ICE/UDP port range
+    environment:
+      - "LIVEKIT_KEYS=RrpSKRlS2w944fJuI9am6w0TFAhWfBlc19iTPWMfRsSzkej05lLR9QZogflnhJJk: 7e3c706cd3eec0686d5d130bcefa622402d16b01110c130b8895173796b5186a"
+    volumes:
+      - ./livekit.yaml:/livekit.yaml
+    networks:
+      - livekit-network
+
+networks:
+  livekit-network:
+    driver: bridge
