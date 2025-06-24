@@ -1,194 +1,137 @@
-# LiveKit SFU Server Setup
+# PixelCast Backend - SRS (Simple Realtime Server)
 
-A Docker-based setup for running a self-hosted LiveKit SFU (Selective Forwarding Unit) server for real-time media communication.
+This backend uses SRS (Simple Realtime Server) for screen sharing functionality. SRS is a high-performance, open-source media server that supports WebRTC, RTMP, HLS, and other streaming protocols.
 
-## 🚀 Overview
+## Features
 
-This directory contains the configuration and scripts needed to run a LiveKit SFU server. The token generation is now handled by the Next.js frontend API, simplifying the overall architecture.
+- **Screen Sharing Only**: Focused on screen sharing without camera/microphone
+- **WebRTC Support**: Uses WHIP (WebRTC-HTTP Ingestion Protocol) for publishing
+- **Low Latency**: Optimized for real-time screen sharing
+- **Scalable**: SRS can handle multiple concurrent screen sharing sessions
+- **Simple Setup**: Docker-based deployment
 
-## 📋 Prerequisites
+## Quick Start
 
-- [Docker](https://www.docker.com/) and Docker Compose
-- A running Next.js frontend application (for token generation)
+1. **Start SRS Server**:
 
-## 🛠️ Setup
-
-### 1. Environment Configuration
-
-The LiveKit server requires API keys configured in a `.env` file. A sample file is already provided with development keys:
-
-```env
-# LiveKit Configuration
-LIVEKIT_API_KEY=RrpSKRlS2w944fJuI9am6w0TFAhWfBlc19iTPWMfRsSzkej05lLR9QZogflnhJJk
-LIVEKIT_API_SECRET=7e3c706cd3eec0686d5d130bcefa622402d16b01110c130b8895173796b5186a
-LIVEKIT_KEYS=RrpSKRlS2w944fJuI9am6w0TFAhWfBlc19iTPWMfRsSzkej05lLR9QZogflnhJJk: 7e3c706cd3eec0686d5d130bcefa622402d16b01110c130b8895173796b5186a
-```
-
-> ⚠️ **For Production**: Generate new keys using `livekit-cli create-api-key` and update the `.env` file.
-
-### 2. Start LiveKit SFU Server
-
-```bash
-# Start the LiveKit SFU server
-./start-livekit.sh
-```
-
-This will start:
-
-- **LiveKit SFU Server** on `ws://localhost:7880` (handles WebRTC connections)
-
-### 3. Verify Server is Running
-
-```bash
-# Test the LiveKit server
-./test-integration.sh
-```
-
-## 📡 Server Configuration
-
-The LiveKit server is configured via `livekit.yaml` and uses the following ports:
-
-- **7880**: HTTP/WebSocket port (main connection)
-- **7881**: TURN/TCP port
-- **3478/udp**: TURN/UDP port  
-- **50000-50020/udp**: ICE/UDP port range
-
-## 🔑 API Keys
-
-The server uses API keys configured in the `.env` file:
-
-```env
-LIVEKIT_API_KEY=RrpSKRlS2w944fJuI9am6w0TFAhWfBlc19iTPWMfRsSzkej05lLR9QZogflnhJJk
-LIVEKIT_API_SECRET=7e3c706cd3eec0686d5d130bcefa622402d16b01110c130b8895173796b5186a
-LIVEKIT_KEYS=RrpSKRlS2w944fJuI9am6w0TFAhWfBlc19iTPWMfRsSzkej05lLR9QZogflnhJJk: 7e3c706cd3eec0686d5d130bcefa622402d16b01110c130b8895173796b5186a
-```
-
-> ⚠️ **Security Note**: These are development keys. For production, generate your own secure keys using the LiveKit CLI and update the `.env` file.
-
-## 🏗️ Architecture
-
-```sh
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   Next.js API    │    │  LiveKit SFU    │
-│   (React)       │◄──►│  Token Server    │    │    Server       │
-│                 │    │  /api/token      │    │                 │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │                        ▲
-                                └────────────────────────┘
-                                    WebRTC Connection
-```
-
-- **Frontend**: React application with LiveKit client
-- **Token Server**: Integrated Next.js API route (`/api/token`)
-- **LiveKit SFU**: Media server handling WebRTC connections
-
-## 🔧 Frontend Integration
-
-Configure your Next.js frontend to connect to the LiveKit server:
-
-```typescript
-// In your React component
-import { Room } from 'livekit-client';
-
-const room = new Room();
-
-// Get token from your Next.js API
-const response = await fetch('/api/token', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    roomName: 'my-room',
-    identity: 'user-123'
-  })
-});
-const { token } = await response.json();
-
-// Connect to LiveKit server
-await room.connect('ws://localhost:7880', token);
-```
-
-## 📊 Management Commands
-
-```bash
-# Start the server
-./start-livekit.sh
-
-# Test the server
-./test-integration.sh
-
-# View logs
-docker-compose logs -f
-
-# Stop the server
-docker-compose down
-
-# Restart the server
-docker-compose restart
-```
-
-## 🐳 Docker Configuration
-
-The `docker-compose.yml` file configures:
-
-- **LiveKit Server**: Official LiveKit Docker image
-- **Port Mapping**: Exposes necessary ports for WebRTC
-- **Volume Mounting**: Mounts `livekit.yaml` configuration
-- **Environment Variables**: Loads API keys from `.env` file for security
-
-## 🔒 Security Considerations
-
-1. **Development Keys**: The included API keys are for development only
-2. **Production Setup**: Generate new keys for production using:
-
-```bash
-   livekit-cli create-api-key
+   ```bash
+   ./start-srs.sh
    ```
 
-3. **Network Security**: Configure firewalls appropriately for production
-4. **Token Validation**: Tokens are validated using the configured API secret
+2. **Check Status**:
 
-## 📄 Files Overview
+   ```bash
+   curl http://localhost:1985/api/v1/versions
+   ```
 
-- `docker-compose.yml`: Docker services configuration with environment variable support
-- `livekit.yaml`: LiveKit server configuration
-- `start-livekit.sh`: Convenience script to start the server
-- `test-integration.sh`: Script to test server functionality
-- `.env`: Environment variables containing API keys (not committed to git)
+3. **View Logs**:
 
-## 🆘 Troubleshooting
+   ```bash
+   docker-compose logs -f srs
+   ```
 
-### Common Issues
-
-1. **Port already in use**:
-   - Stop existing LiveKit instances: `docker-compose down`
-   - Check for other services on port 7880: `lsof -i :7880`
-
-2. **Docker not running**:
-   - Start Docker Desktop or Docker daemon
-   - Verify with: `docker info`
-
-3. **Connection refused**:
-   - Ensure server is running: `docker-compose ps`
-   - Check logs: `docker-compose logs livekit`
-
-4. **WebRTC connection issues**:
-   - Verify UDP ports 50000-50020 are available
-   - Check firewall settings for UDP traffic
-
-### Debug Mode
-
-For additional debugging:
+## Architecture
 
 ```bash
-# View detailed logs
-docker-compose logs -f livekit
-
-# Check server health
-curl http://localhost:7880/
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │   SRS Server    │    │   Viewers       │
+│   (Publisher)   │────│                 │────│   (Subscribers) │
+│                 │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+    WebRTC WHIP           Port 8000             WebRTC WHEP
 ```
 
-## 📚 Additional Resources
+## Configuration
 
-- [LiveKit Documentation](https://docs.livekit.io/)
-- [LiveKit Server Configuration](https://docs.livekit.io/deploy/configuration/)
-- [Docker Compose Reference](https://docs.docker.com/compose/)
+### SRS Configuration (`srs.conf`)
+
+- **WebRTC Server**: Port 8000
+- **HTTP API**: Port 1985
+- **HTTP Server**: Port 8080
+- **RTMP**: Port 1935 (if needed)
+
+### Environment Variables
+
+- `SRS_API_URL`: SRS API endpoint (default: <http://localhost:1985>)
+- `SRS_SERVER_URL`: SRS WebRTC endpoint (default: <http://localhost:8000>)
+
+## API Endpoints
+
+The frontend provides webhook endpoints for SRS:
+
+- `POST /api/srs/connect` - User connects to SRS
+- `POST /api/srs/close` - User disconnects from SRS
+- `POST /api/srs/publish` - User starts screen sharing
+- `POST /api/srs/unpublish` - User stops screen sharing
+- `POST /api/srs/play` - Viewer starts watching
+- `POST /api/srs/stop` - Viewer stops watching
+
+## Screen Sharing Workflow
+
+1. **User Joins Room**: Frontend generates stream key and WebRTC URLs
+2. **Start Screen Share**: User clicks "Share Screen" → WebRTC WHIP to SRS
+3. **Viewers Join**: Other users connect via WebRTC WHEP from SRS
+4. **Real-time Streaming**: SRS handles WebRTC peer connections and media relay
+
+## Troubleshooting
+
+### SRS Not Starting
+
+```bash
+# Check Docker logs
+docker-compose logs srs
+
+# Restart SRS
+docker-compose restart srs
+```
+
+### WebRTC Connection Issues
+
+- Check firewall settings for ports 8000, 1985, 8080
+- Verify STUN servers are accessible
+- Check browser console for WebRTC errors
+
+### Performance Optimization
+
+- Adjust video quality settings in frontend
+- Monitor SRS resource usage: `docker stats`
+- Scale horizontally with multiple SRS instances if needed
+
+## Development vs Production
+
+### Development
+
+- Uses `localhost` for all connections
+- Single SRS instance
+- Basic STUN server configuration
+
+### Production
+
+- Configure proper external IP addresses
+- Use TURN servers for NAT traversal
+- Load balancing for multiple SRS instances
+- SSL/TLS termination
+
+## Migration from LiveKit
+
+This backend has been migrated from LiveKit to SRS:
+
+### What Changed
+
+- **Media Server**: LiveKit → SRS
+- **Protocol**: LiveKit SDK → Native WebRTC with WHIP/WHEP
+- **Configuration**: `livekit.yaml` → `srs.conf`
+- **Ports**: LiveKit ports → SRS ports (8000, 1985, 8080)
+
+### What Stayed the Same
+
+- Frontend React architecture
+- Room-based organization
+- User authentication flow
+- Docker-based deployment
+
+## Resources
+
+- [SRS Documentation](https://ossrs.io/)
+- [SRS GitHub](https://github.com/ossrs/srs)
+- [WebRTC WHIP/WHEP Specification](https://www.ietf.org/archive/id/draft-ietf-wish-whip-01.html)
