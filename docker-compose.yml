@@ -1,22 +1,29 @@
-version: "3.8"
-
+# docker-compose.yml
+# Usage: docker-compose up -d
 services:
-  # SRS Media Server (Simple Realtime Server)
   srs:
+    # Use the official SRS 6 image
     image: ossrs/srs:6
+
+    # Container name for easier management
     container_name: srs-server
+
+    # Restart the container automatically if it stops
+    restart: unless-stopped
+
+    # Mount the custom configuration file into the container
+    volumes:
+      - ./srs.conf:/usr/local/srs/conf/srs.conf
+
+    # Map the necessary ports from the host to the container
     ports:
       - "1935:1935" # RTMP
       - "1985:1985" # HTTP API
-      - "8080:8080" # HTTP Server
-      - "8000:8000/udp" # WebRTC
-    environment:
-      - CANDIDATE=192.168.0.107
-    volumes:
-      - ./srs.conf:/usr/local/srs/conf/srs.conf
-    networks:
-      - srs-network
+      - "8080:8080" # HTTP Server (for demos/players)
+      - "8000:8000/udp" # WebRTC over UDP
+      - "8001:8001/tcp" # WebRTC over TCP (Fallback)
 
-networks:
-  srs-network:
-    driver: bridge
+    # Set the WebRTC candidate IP address
+    # !! IMPORTANT: Replace with your server's actual public IP address !!
+    environment:
+      - CANDIDATE=158.179.18.186
