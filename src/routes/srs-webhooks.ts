@@ -5,6 +5,7 @@ import {
 	createErrorResponse,
 	formatTimestamp,
 } from "../utils.ts";
+import { db } from "../database.ts";
 
 // SRS Connect webhook handler
 export async function handleConnect(ctx: Context) {
@@ -64,7 +65,7 @@ export async function handlePublish(ctx: Context) {
 	try {
 		const body: SRSWebhookBody = await ctx.request.body({ type: "json" }).value;
 
-		console.log("📺 SRS Publish (Screen Share):", {
+		console.log("📺 SRS Publish (Stream Started):", {
 			action: body.action,
 			client_id: body.client_id,
 			ip: body.ip,
@@ -75,8 +76,7 @@ export async function handlePublish(ctx: Context) {
 			timestamp: formatTimestamp(),
 		});
 
-		// Validate that this is a screen sharing stream
-		// You can add additional validation logic here
+		// Validation can be added here if needed
 
 		ctx.response.body = { code: 0, message: "success" };
 	} catch (error) {
@@ -91,7 +91,7 @@ export async function handleUnpublish(ctx: Context) {
 	try {
 		const body: SRSWebhookBody = await ctx.request.body({ type: "json" }).value;
 
-		console.log("📺 SRS Unpublish (Screen Share Stopped):", {
+		console.log("📺 SRS Unpublish (Stream Stopped):", {
 			action: body.action,
 			client_id: body.client_id,
 			ip: body.ip,
@@ -101,8 +101,8 @@ export async function handleUnpublish(ctx: Context) {
 			timestamp: formatTimestamp(),
 		});
 
-		// Handle screen sharing stopped event
-		// You can add cleanup logic here if needed
+		// The cleanup service will handle idle room deletion.
+		// No immediate action is required here.
 
 		ctx.response.body = { code: 0, message: "success" };
 	} catch (error) {

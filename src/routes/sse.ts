@@ -1,16 +1,12 @@
 import { Context } from "oak";
-import {
-	StreamInfo,
-	SRSStreamsResponse,
-	SSEEvent,
-	StreamController,
-} from "../types.ts";
+import { StreamInfo, SRSStreamsResponse, StreamController } from "../types.ts";
 import { parseSearchParams } from "../utils.ts";
 import { srsUrls } from "../config.ts";
 
 // Global state to track connected clients and current streams
 const connectedClients = new Map<string, StreamController>();
-const currentStreams = new Map<string, StreamInfo[]>(); // roomName -> streams[]
+// Map stream KEY to its info, not app-name to array.
+const currentStreams = new Map<string, StreamInfo>(); // stream.name -> streamInfo
 
 // Cleanup disconnected clients
 setInterval(() => {
@@ -29,7 +25,9 @@ setInterval(() => {
 // Poll SRS for stream changes and broadcast to clients
 async function pollAndBroadcastStreams() {
 	try {
-		const srsResponse = await fetch(`${srsUrls.api}/api/v1/streams/`, {
+		const apiUrl = `${srsUrls.api}/streams`;
+
+		const srsResponse = await fetch(apiUrl, {
 			method: "GET",
 			headers: {
 				"Content-Type": "application/json",
@@ -44,90 +42,60 @@ async function pollAndBroadcastStreams() {
 		const streamsData: SRSStreamsResponse = await srsResponse.json();
 		const allStreams = streamsData.streams || [];
 
-		// Debug logging for stream data
-		if (allStreams.length > 0) {
-			console.log(`🔍 SSE: Found ${allStreams.length} total streams`);
-			allStreams.forEach((stream) => {
-				console.log(
-					`🔍 SSE: Stream ${stream.name} - Video: ${
-						stream.video ? "YES" : "NO"
-					}, Audio: ${stream.audio ? "YES" : "NO"}`
-				);
-				console.log(`🔍 SSE: Full stream object for ${stream.name}:`, stream);
-			});
-		}
-
-		// Group streams by room (app)
-		const streamsByRoom = new Map<string, StreamInfo[]>();
+		// Create a new map of streams from the latest fetch, keyed by stream name.
+		const newStreamsByName = new Map<string, StreamInfo>();
 		allStreams.forEach((stream) => {
-			if (!streamsByRoom.has(stream.app)) {
-				streamsByRoom.set(stream.app, []);
-			}
-			streamsByRoom.get(stream.app)!.push(stream);
+			newStreamsByName.set(stream.name, stream);
 		});
 
-		// Check for changes in each room and broadcast updates
-		for (const [roomName, streams] of streamsByRoom.entries()) {
-			const previousStreams = currentStreams.get(roomName) || [];
+		// Get a unique set of all stream keys that are either currently active or were active in the last poll.
+		const allStreamKeys = new Set([
+			...currentStreams.keys(),
+			...newStreamsByName.keys(),
+		]);
 
-			// Check if streams have changed
-			const hasChanged =
-				streams.length !== previousStreams.length ||
-				streams.some((stream, index) => {
-					const prevStream = previousStreams[index];
-					return (
-						!prevStream ||
-						stream.name !== prevStream.name ||
-						stream.publish.active !== prevStream.publish.active
-					);
-				});
+		// For each potentially changed stream, check and broadcast if needed.
+		for (const streamKey of allStreamKeys) {
+			const previousStream = currentStreams.get(streamKey);
+			const newStream = newStreamsByName.get(streamKey);
 
-			if (hasChanged) {
-				console.log(`📡 Broadcasting stream update for room: ${roomName}`);
-				currentStreams.set(roomName, streams);
+			const getStatusSignature = (s: StreamInfo | undefined) =>
+				s ? `${s.publish.active}:${s.clients || 0}` : "offline";
 
-				// Debug what we're about to send
+			const prevSignature = getStatusSignature(previousStream);
+			const newSignature = getStatusSignature(newStream);
+
+			if (prevSignature !== newSignature) {
 				console.log(
-					`🔍 SSE: About to broadcast streams for ${roomName}:`,
-					streams
+					`❗️ [SSE Polling] Status change for stream ${streamKey}: ${prevSignature} -> ${newSignature}`
 				);
 
-				// Broadcast to all connected clients
-				const message = `data: ${JSON.stringify({
-					type: "streams_update",
-					roomName,
-					streams,
-				})}\n\n`;
-
-				for (const [clientId, controller] of connectedClients.entries()) {
-					try {
-						controller.enqueue(message);
-					} catch (error) {
-						console.warn(`⚠️ Failed to send to client ${clientId}:`, error);
-						connectedClients.delete(clientId);
-					}
+				// Update the central state
+				if (newStream) {
+					currentStreams.set(streamKey, newStream);
+				} else {
+					currentStreams.delete(streamKey);
 				}
-			}
-		}
 
-		// Check for rooms that no longer have streams
-		for (const [roomName] of currentStreams.entries()) {
-			if (!streamsByRoom.has(roomName)) {
-				console.log(`📡 Broadcasting stream removal for room: ${roomName}`);
-				currentStreams.delete(roomName);
-
+				// Broadcast only to clients subscribed to this specific streamKey
 				const message = `data: ${JSON.stringify({
 					type: "streams_update",
-					roomName,
-					streams: [],
+					roomName: streamKey,
+					streams: newStream ? [newStream] : [], // Frontend expects an array
 				})}\n\n`;
 
 				for (const [clientId, controller] of connectedClients.entries()) {
-					try {
-						controller.enqueue(message);
-					} catch (error) {
-						console.warn(`⚠️ Failed to send to client ${clientId}:`, error);
-						connectedClients.delete(clientId);
+					if (clientId.startsWith(`${streamKey}-`)) {
+						console.log(`📡 Broadcasting to ${clientId} for room ${streamKey}`);
+						try {
+							controller.enqueue(message);
+						} catch (error) {
+							console.warn(
+								`⚠️ Failed to send to client ${clientId}, removing.`,
+								error
+							);
+							connectedClients.delete(clientId);
+						}
 					}
 				}
 			}
@@ -138,14 +106,14 @@ async function pollAndBroadcastStreams() {
 }
 
 // Start background polling
-const POLLING_INTERVAL = 2000; // 2 seconds
+const POLLING_INTERVAL = 5000; // 5 seconds
 setInterval(pollAndBroadcastStreams, POLLING_INTERVAL);
 
 // Initial poll
 pollAndBroadcastStreams();
 
 // SSE handler
-export async function handleSSE(ctx: Context) {
+export function handleSSE(ctx: Context) {
 	const url = ctx.request.url;
 	const searchParams = parseSearchParams(url.toString());
 	const roomName = searchParams.get("room");
@@ -187,12 +155,12 @@ export async function handleSSE(ctx: Context) {
 			});
 
 			// Send current streams for this room if available
-			const currentRoomStreams = currentStreams.get(roomName) || [];
-			if (currentRoomStreams.length > 0) {
+			const currentRoomStreams = currentStreams.get(roomName);
+			if (currentRoomStreams) {
 				sendMessage({
 					type: "streams_update",
 					roomName,
-					streams: currentRoomStreams,
+					streams: [currentRoomStreams],
 				});
 			}
 

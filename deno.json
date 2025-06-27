@@ -1,9 +1,11 @@
 {
 	"tasks": {
-		"start": "deno run --allow-net --allow-env --allow-read main.ts",
-		"dev": "deno run --allow-net --allow-env --allow-read --watch main.ts"
+		"start": "deno run --allow-net --allow-env --allow-read --allow-write main.ts",
+		"dev": "deno run --allow-net --allow-env --allow-read --allow-write --watch main.ts",
+		"test:db": "deno run --allow-net --allow-env --allow-read --allow-write test-database.ts"
 	},
 	"imports": {
+		"pglite": "npm:@electric-sql/pglite@^0.3.4",
 		"std/": "https://deno.land/std@0.208.0/",
 		"oak": "https://deno.land/x/oak@v12.6.1/mod.ts",
 		"cors": "https://deno.land/x/cors@v1.2.2/mod.ts",

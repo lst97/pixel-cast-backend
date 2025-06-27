@@ -1,7 +1,11 @@
 import { Context } from "oak";
 import { config, srsUrls } from "../config.ts";
 import { SRSStreamsResponse } from "../types.ts";
-import { parseSearchParams, createErrorResponse } from "../utils.ts";
+import {
+	parseSearchParams,
+	createErrorResponse,
+	createSuccessResponse,
+} from "../utils.ts";
 
 // WHIP proxy handler
 export async function handleWHIP(ctx: Context) {
@@ -672,10 +676,6 @@ export async function handleRTMPStreamStatus(ctx: Context) {
 			return;
 		}
 
-		console.log(
-			`📊 Checking RTMP stream status for app: ${app}, stream: ${stream}`
-		);
-
 		// Get stream info from SRS API
 		const streamsResponse = await fetch(`${srsUrls.api}/api/v1/streams/`);
 
@@ -688,12 +688,35 @@ export async function handleRTMPStreamStatus(ctx: Context) {
 			(s) => s.app === app && s.name === stream
 		);
 
-		const isLive = streamInfo?.publish?.active || false;
+		let isLive = streamInfo?.publish?.active || false;
 		const viewerCount = streamInfo?.clients || 0;
 
-		console.log(
-			`✅ Stream status: ${app}/${stream}, isLive: ${isLive}, viewers: ${viewerCount}`
-		);
+		// Fallback check if API reports not live, as API can be stale.
+		if (!isLive && stream) {
+			console.log(
+				`🤔 API reports stream offline for ${app}/${stream}. Double-checking with FLV endpoint...`
+			);
+			try {
+				const flvTestUrl = `${srsUrls.http}/${app}/${stream}.flv`;
+				const flvResponse = await fetch(flvTestUrl, {
+					method: "HEAD",
+					signal: AbortSignal.timeout(2000), // 2s timeout
+				});
+
+				if (flvResponse.ok) {
+					isLive = true;
+					console.log(
+						`✅ FLV endpoint check successful. Stream ${app}/${stream} is confirmed live.`
+					);
+				}
+			} catch (e) {
+				console.warn(
+					`⚠️ FLV endpoint check for ${app}/${stream} failed: ${
+						(e as Error).message
+					}. Sticking with API status.`
+				);
+			}
+		}
 
 		ctx.response.headers.set("Content-Type", "application/json");
 		ctx.response.body = {
@@ -782,3 +805,96 @@ export const handleHLSProxy = async (ctx: Context) => {
 		};
 	}
 };
+
+// Handler for the RTMP connection monitor
+export async function handleGetSrsMonitor(ctx: Context) {
+	try {
+		const url = ctx.request.url;
+		const searchParams = parseSearchParams(url.toString());
+		const app = searchParams.get("app") || "__defaultApp__";
+		const roomName = searchParams.get("roomName");
+
+		if (!roomName) {
+			ctx.response.status = 400;
+			ctx.response.body = { error: "Missing roomName parameter" };
+			return;
+		}
+
+		console.log(`🔍 Fetching monitor data for RTMP stream ${app}/${roomName}`);
+
+		const [summaryRes, streamsRes] = await Promise.all([
+			fetch(`${srsUrls.api}/summaries`),
+			fetch(`${srsUrls.api}/streams`),
+		]);
+
+		if (!summaryRes.ok) {
+			console.error(
+				`❌ SRS summaries API request failed: ${summaryRes.status}`
+			);
+			ctx.response.status = 502;
+			ctx.response.body = {
+				error: "Failed to fetch system summary from SRS server.",
+			};
+			return;
+		}
+
+		if (!streamsRes.ok) {
+			console.error(`❌ SRS streams API request failed: ${streamsRes.status}`);
+			ctx.response.status = 502;
+			ctx.response.body = {
+				error: "Failed to fetch streams from SRS server.",
+			};
+			return;
+		}
+
+		const summary = await summaryRes.json();
+		const streams = await streamsRes.json();
+
+		const currentStream = streams.streams?.find(
+			(s: any) => s.app === app && s.name === roomName
+		);
+
+		const totalClients =
+			streams.streams?.reduce(
+				(sum: number, stream: any) => sum + (stream.clients || 0),
+				0
+			) || 0;
+
+		const responseData = {
+			isConnected: true,
+			serverVersion: summary.data.self.version,
+			serverUptime: summary.data.self.srs_uptime,
+			cpuUsage: summary.data.system.cpu_percent,
+			memoryUsage: summary.data.system.mem_ram_percent,
+			diskUsage: summary.data.system.disk_busy_percent,
+			loadAverage: [
+				summary.data.system.load_1m,
+				summary.data.system.load_5m,
+				summary.data.system.load_15m,
+			],
+			streamCount: streams.streams?.length || 0,
+			totalClients: totalClients,
+			streamInfo: currentStream
+				? {
+						publish: currentStream.publish,
+						clients: currentStream.clients,
+						kbps: currentStream.kbps,
+						video: currentStream.video,
+						audio: currentStream.audio,
+						live_ms: currentStream.live_ms,
+				  }
+				: undefined,
+			now_ms: summary.data.now_ms,
+		};
+
+		ctx.response.status = 200;
+		ctx.response.body = responseData;
+	} catch (error) {
+		console.error("❌ Error in SRS monitor proxy:", error);
+		ctx.response.status = 500;
+		ctx.response.body = {
+			error: "Internal server error",
+			details: error instanceof Error ? error.message : "Unknown error",
+		};
+	}
+}

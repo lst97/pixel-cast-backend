@@ -1,5 +1,11 @@
 # docker-compose.yml
 # Usage: docker-compose up -d
+version: "3.8"
+
+networks:
+  pixelcast_network:
+    driver: bridge
+
 services:
   srs:
     # Use the official SRS 6 image
@@ -24,6 +30,26 @@ services:
       - "8001:8001/tcp" # WebRTC over TCP (Fallback)
 
     # Set the WebRTC candidate IP address
-    # !! IMPORTANT: Replace with your server's actual public IP address !!
+    # In a Docker environment, we can use the service name `srs` as the hostname
     environment:
-      - CANDIDATE=158.179.18.186
+      - CANDIDATE=srs
+    networks:
+      - pixelcast_network
+
+  backend:
+    build: .
+    container_name: pixelcast-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/app
+    depends_on:
+      - srs
+    # You might want to use an .env file for environment variables
+    # env_file:
+    #   - .env
+    environment:
+      - SRS_SERVER_IP=srs
+    networks:
+      - pixelcast_network
