@@ -226,7 +226,7 @@ async function sendDiscordWebhook(
 			{
 				name: isRTMP ? "📺 How to Stream" : "🖥️ How to Share Screen",
 				value: isRTMP
-					? `1. Click the room link above\n2. Copy the RTMP server URL and stream key\n3. Open OBS or your streaming software\n4. Set Server to: \`rtmp://${config.srs.ip}\`\n5. Set Stream Key to the key above\n6. Start streaming!`
+					? `1. Click the room link above\n2. Copy the RTMP server URL and stream key\n3. Open OBS or your streaming software\n4. Set Server to: \`${config.srs.rtmpUrl}\`\n5. Set Stream Key to the key above\n6. Start streaming!`
 					: "1. Click the room link above\n2. Click 'Share Screen'\n3. Select the screen/window to share\n4. Start sharing!",
 				inline: false,
 			},

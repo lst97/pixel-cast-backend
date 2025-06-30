@@ -13,15 +13,21 @@ export const config = {
 	port: parseInt(Deno.env.get("BACKEND_PORT") || "3001"),
 	host: Deno.env.get("BACKEND_HOST") || "localhost", // Use localhost for local development
 
+	// Backend configuration
+	backendBaseUrl:
+		Deno.env.get("BACKEND_BASE_URL") ||
+		`http://localhost:${parseInt(Deno.env.get("BACKEND_PORT") || "3001")}`,
+
 	// Frontend configuration
 	frontendBaseUrl: Deno.env.get("FRONTEND_BASE_URL") || "http://localhost:3000",
 
-	// SRS server configuration
+	// SRS server configuration - using URLs instead of separate IP/port
 	srs: {
-		ip: Deno.env.get("SRS_SERVER_IP") || "127.0.0.1",
-		apiPort: parseInt(Deno.env.get("SRS_API_PORT") || "1985"),
-		webrtcPort: parseInt(Deno.env.get("SRS_WEBRTC_PORT") || "8000"),
-		httpPort: parseInt(Deno.env.get("SRS_HTTP_PORT") || "8080"),
+		baseUrl: Deno.env.get("SRS_SERVER_BASE_URL") || "http://127.0.0.1:8080",
+		httpApiUrl: Deno.env.get("SRS_HTTP_API_URL") || "http://127.0.0.1:1985",
+		rtmpUrl: Deno.env.get("SRS_RTMP_URL") || "rtmp://127.0.0.1",
+		hlsUrl: Deno.env.get("SRS_HLS_URL") || "http://127.0.0.1:8080",
+		webrtcUrl: Deno.env.get("SRS_WEBRTC_URL") || "http://127.0.0.1:8000",
 	},
 
 	// CORS configuration
@@ -35,14 +41,18 @@ export const config = {
 
 // Computed URLs - clean construction
 export const srsUrls = {
-	api: `http://${config.srs.ip}:${config.srs.apiPort}/api/v1`,
-	webrtc: `http://${config.srs.ip}:${config.srs.webrtcPort}`,
-	http: `http://${config.srs.ip}:${config.srs.httpPort}`,
+	api: `${config.srs.httpApiUrl}/api/v1`,
+	webrtc: config.srs.webrtcUrl,
+	http: config.srs.baseUrl,
+	hls: config.srs.hlsUrl,
+	rtmp: config.srs.rtmpUrl,
 };
 
 // Debug output
 console.log("🔧 Configuration loaded:");
-console.log(`   Server: ${config.host}:${config.port}`);
+console.log(`   Backend: ${config.backendBaseUrl}`);
 console.log(`   Frontend Base URL: ${config.frontendBaseUrl}`);
-console.log(`   SRS IP: ${config.srs.ip}`);
+console.log(`   SRS Base URL: ${config.srs.baseUrl}`);
 console.log(`   SRS API URL: ${srsUrls.api}`);
+console.log(`   SRS RTMP URL: ${srsUrls.rtmp}`);
+console.log(`   SRS WebRTC URL: ${srsUrls.webrtc}`);
