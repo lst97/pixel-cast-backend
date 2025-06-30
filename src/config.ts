@@ -13,6 +13,9 @@ export const config = {
 	port: parseInt(Deno.env.get("BACKEND_PORT") || "3001"),
 	host: Deno.env.get("BACKEND_HOST") || "localhost", // Use localhost for local development
 
+	// Frontend configuration
+	frontendBaseUrl: Deno.env.get("FRONTEND_BASE_URL") || "http://localhost:3000",
+
 	// SRS server configuration
 	srs: {
 		ip: Deno.env.get("SRS_SERVER_IP") || "127.0.0.1",
@@ -40,5 +43,6 @@ export const srsUrls = {
 // Debug output
 console.log("🔧 Configuration loaded:");
 console.log(`   Server: ${config.host}:${config.port}`);
+console.log(`   Frontend Base URL: ${config.frontendBaseUrl}`);
 console.log(`   SRS IP: ${config.srs.ip}`);
 console.log(`   SRS API URL: ${srsUrls.api}`);

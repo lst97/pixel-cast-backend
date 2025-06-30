@@ -25,7 +25,7 @@ export async function handleCreateRoom(ctx: Context) {
 		const room = await db.createRoom(roomName, streamKey, type, roomUrl);
 
 		// Full URL for frontend
-		const fullRoomUrl = `${config.allowedOrigins[0]}${roomUrl}`;
+		const fullRoomUrl = `${config.frontendBaseUrl}${roomUrl}`;
 
 		// Send Discord webhook if configured
 		if (config.discordWebhookUrl) {
@@ -74,7 +74,7 @@ export async function handleGetRooms(ctx: Context) {
 			name: room.name,
 			streamKey: room.stream_key,
 			type: room.room_type,
-			roomUrl: `${config.allowedOrigins[0]}${room.room_url}`,
+			roomUrl: `${config.frontendBaseUrl}${room.room_url}`,
 			createdAt: room.created_at,
 			discordWebhookSent: room.discord_webhook_sent,
 		}));
@@ -121,7 +121,7 @@ export async function handleGetRoomByStreamKey(ctx: Context) {
 				name: room.name,
 				streamKey: room.stream_key,
 				type: room.room_type,
-				roomUrl: `${config.allowedOrigins[0]}${room.room_url}`,
+				roomUrl: `${config.frontendBaseUrl}${room.room_url}`,
 				createdAt: room.created_at,
 				discordWebhookSent: room.discord_webhook_sent,
 			},
@@ -173,7 +173,7 @@ export async function handleValidateRoomUrl(ctx: Context) {
 				name: room.name,
 				streamKey: room.stream_key,
 				type: room.room_type,
-				roomUrl: `${config.allowedOrigins[0]}${room.room_url}`,
+				roomUrl: `${config.frontendBaseUrl}${room.room_url}`,
 				createdAt: room.created_at,
 			},
 		};
