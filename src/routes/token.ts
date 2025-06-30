@@ -34,8 +34,13 @@ export async function handleTokenGeneration(ctx: Context) {
 			whepUrl: `/api/srs-proxy/whep?app=${encodeURIComponent(
 				roomName
 			)}&stream=${encodeURIComponent(identity)}`,
-			hlsUrl: `http://localhost:8080/${roomName}/${identity}.m3u8`,
-			iceServers: [
+			hlsUrl: `${Deno.env.get(
+				"NEXT_PUBLIC_SRS_HLS_URL"
+			)}/${roomName}/${identity}.m3u8`,
+			iceServers: Deno.env
+				.get("NEXT_PUBLIC_STUN_SERVERS")
+				?.split(",")
+				.map((url) => ({ urls: url })) || [
 				{ urls: "stun:stun.l.google.com:19302" },
 				{ urls: "stun:stun1.l.google.com:19302" },
 				{ urls: "stun:stun2.l.google.com:19302" },

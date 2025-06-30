@@ -11,6 +11,9 @@ COPY deno.json deno.lock /app/
 # The --lock=deno.lock flag ensures that the exact versions of the dependencies from the lock file are used.
 RUN deno cache main.ts --lock=deno.lock
 
+# Copy the environment file
+COPY .env ./
+
 # Copy the rest of the application source code into the container.
 # This includes all the .ts files, routes, and other necessary assets.
 COPY . .
