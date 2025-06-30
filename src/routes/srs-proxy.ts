@@ -510,11 +510,11 @@ export async function handleStopStream(ctx: Context) {
 }
 
 // RTMP streaming handler for getting RTMP ingest URL
-export async function handleRTMPIngest(ctx: Context) {
+export function handleRTMPIngest(ctx: Context) {
 	try {
 		const url = ctx.request.url;
 		const searchParams = parseSearchParams(url.toString());
-		const app = searchParams.get("app") || "__defaultApp__";
+		const app = searchParams.get("app") || "__pixelcast__";
 		const stream = searchParams.get("stream");
 
 		if (!stream) {
@@ -528,7 +528,7 @@ export async function handleRTMPIngest(ctx: Context) {
 			`🔴 Generating RTMP ingest URL for app: ${app}, stream: ${stream}`
 		);
 
-		// Generate RTMP ingest URL (use __defaultApp__ for SRS default)
+		// Generate RTMP ingest URL (use __pixelcast__ for SRS default)
 		const rtmpIngestUrl = `rtmp://${srsUrls.api
 			.replace("http://", "")
 			.replace(":1985", ":1935")}/${app}/${stream}`;
@@ -666,7 +666,7 @@ export async function handleRTMPStreamStatus(ctx: Context) {
 	try {
 		const url = ctx.request.url;
 		const searchParams = parseSearchParams(url.toString());
-		const app = searchParams.get("app") || "__defaultApp__";
+		const app = searchParams.get("app") || "__pixelcast__";
 		const stream = searchParams.get("stream");
 
 		if (!stream) {
@@ -811,7 +811,7 @@ export async function handleGetSrsMonitor(ctx: Context) {
 	try {
 		const url = ctx.request.url;
 		const searchParams = parseSearchParams(url.toString());
-		const app = searchParams.get("app") || "__defaultApp__";
+		const app = searchParams.get("app") || "__pixelcast__";
 		const roomName = searchParams.get("roomName");
 
 		if (!roomName) {
