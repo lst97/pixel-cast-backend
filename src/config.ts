@@ -9,6 +9,7 @@ try {
 
 export const config = {
 	// Server configuration
+	isProduction: Deno.env.get("NODE_ENV") === "production",
 	port: parseInt(Deno.env.get("PORT") || "3001"),
 	host: Deno.env.get("HOST") || "localhost", // Use localhost for local development
 

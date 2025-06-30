@@ -41,6 +41,46 @@ import { db } from "./src/database.ts";
 import { cleanupService } from "./src/cleanup.ts";
 
 const app = new Application();
+
+// Error handling middleware
+app.use(async (ctx, next) => {
+	try {
+		await next();
+	} catch (err) {
+		if (err instanceof Error) {
+			if (err.message.includes("connection closed before message completed")) {
+				// This error is expected when a client disconnects from an SSE stream
+				// We can log it as a warning for debugging purposes, but it's not a server error
+				console.warn(
+					`[SSE] Client connection closed prematurely for ${ctx.request.url}. This is expected during page reloads.`
+				);
+			} else {
+				// Log all other errors as critical
+				console.error("💥 Unhandled application error:", err);
+
+				// Avoid leaking detailed error information in production
+				if (config.isProduction) {
+					ctx.response.status = 500;
+					ctx.response.body = { error: "Internal Server Error" };
+				} else {
+					// Provide more detailed error in development
+					ctx.response.status = 500;
+					ctx.response.body = {
+						error: "Internal Server Error",
+						details: err.message,
+						stack: err.stack,
+					};
+				}
+			}
+		} else {
+			// Handle cases where the thrown object is not an Error
+			console.error("💥 Unhandled non-error exception:", err);
+			ctx.response.status = 500;
+			ctx.response.body = { error: "Internal Server Error" };
+		}
+	}
+});
+
 const router = new Router();
 
 // CORS middleware - add headers to all responses
@@ -206,20 +246,6 @@ app.use(async (ctx, next) => {
 
 app.use(router.routes());
 app.use(router.allowedMethods());
-
-// Error handling middleware
-app.use(async (ctx, next) => {
-	try {
-		await next();
-	} catch (err) {
-		console.error("❌ Server error:", err);
-		ctx.response.status = 500;
-		ctx.response.body = {
-			error: "Internal server error",
-			details: err instanceof Error ? err.message : "Unknown error",
-		};
-	}
-});
 
 console.log(`🚀 PixelCast Backend starting...`);
 console.log(`📍 Server will listen on ${config.host}:${config.port}`);
