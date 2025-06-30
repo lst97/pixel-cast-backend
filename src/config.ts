@@ -11,7 +11,7 @@ export const config = {
 	// Server configuration
 	isProduction: Deno.env.get("NODE_ENV") === "production",
 	port: parseInt(Deno.env.get("BACKEND_PORT") || "3001"),
-	host: Deno.env.get("HOST") || "localhost", // Use localhost for local development
+	host: Deno.env.get("BACKEND_HOST") || "localhost", // Use localhost for local development
 
 	// SRS server configuration
 	srs: {
